@@ -18,7 +18,7 @@
 class Game {
     private keysPressed: Set<string> = new Set();
     private cubePosition = { x: 0, y: 0 };
-    private readonly MOVEMENT_SPEED = 5; // pixels per frame
+    private MOVEMENT_SPEED = 5; // pixels per frame
 
     constructor() {
         // Add event listeners

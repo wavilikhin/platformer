@@ -1,32 +1,69 @@
-const CANVAS_PADDING = 5;
-const FPS = 70;
-
 let keyDownListener;
 let keyUpListener;
 
 window.onload = function () {
   // Classes
   class Game {
+    CANVAS_PADDING = 10;
+    BASE_SPEED = 300;
+    MAX_DELTA_TIME = 0.016; // = 1s / 60 frames
+
     constructor(ctx, player) {
       this.width = ctx.canvas.width;
       this.height = ctx.canvas.height;
       this.player = player;
+      this.ctx = ctx;
+
+      const initialPlayerX = this.CANVAS_PADDING;
+      const initialPlayerY =
+        ctx.canvas.height - this.CANVAS_PADDING - player.size;
+      this.player.x = initialPlayerX;
+      this.player.y = initialPlayerY;
+
+      this.player.renderX = this.player.x;
+
+      this.lastTime = 0;
+      this.accumulator = 0;
+      this.fixedTimeStep = 1 / 240;
     }
 
-    render = () => {
-      ctx.clearRect(0, 0, this.width, this.height);
-
-      const updatesPerSecond = FPS / this.player.speedModifier;
-      const updateStep = this.player.size / updatesPerSecond;
+    update(deltaTime) {
+      const moveAmount = this.BASE_SPEED * deltaTime;
 
       if (this.player.moves.has("left")) {
-        this.player.x -= updateStep;
+        this.player.x -= moveAmount * this.player.speedModifier;
       } else if (this.player.moves.has("right")) {
-        this.player.x += updateStep;
+        this.player.x += moveAmount * this.player.speedModifier;
       }
 
-      ctx.fillRect(
-        this.player.x,
+      const interpolationFactor = 0.85;
+      this.player.renderX =
+        this.player.renderX +
+        (this.player.x - this.player.renderX) * interpolationFactor;
+    }
+
+    render = (currentTime) => {
+      currentTime *= 0.001;
+      let deltaTime = currentTime - this.lastTime;
+      this.lastTime = currentTime;
+
+      // Cap delta time to prevent large jumps
+      deltaTime = Math.min(deltaTime, this.MAX_DELTA_TIME);
+
+      this.accumulator += deltaTime;
+
+      // Update physics at a fixed time step
+      while (this.accumulator >= this.fixedTimeStep) {
+        this.update(this.fixedTimeStep);
+        this.accumulator -= this.fixedTimeStep;
+      }
+
+      this.ctx.clearRect(0, 0, this.width, this.height);
+
+      // Draw player using interpolated position
+      this.ctx.fillStyle = "blue";
+      this.ctx.fillRect(
+        Math.round(this.player.renderX),
         this.player.y,
         this.player.size,
         this.player.size,
@@ -37,14 +74,23 @@ window.onload = function () {
   }
 
   class Player {
-    constructor({ x, y, size, speedModifier }) {
-      this.x = x;
-      this.y = y;
-      this.size = size;
-      this.speedModifier = speedModifier ?? 1;
-      this.moves = new Set();
+    DEFAULT_PLAYER_SIZE = 25;
+    DEFAULT_SPEED_MODIFIER = 1;
 
-      // Events
+    constructor({
+      size = this.DEFAULT_PLAYER_SIZE,
+      speedModifier = this.DEFAULT_SPEED_MODIFIER,
+    }) {
+      this.x = null;
+      this.renderX = null;
+      this.y = null;
+      this.size = size;
+      this.speedModifier = speedModifier;
+      this.moves = new Set();
+      this.setupInputHandlers();
+    }
+
+    setupInputHandlers() {
       keyDownListener = (e) => {
         switch (e.code) {
           case "ArrowLeft":
@@ -79,16 +125,7 @@ window.onload = function () {
   const canvas = document.getElementById("canvas");
   const ctx = canvas.getContext("2d");
 
-  const size = 25;
-  const initialPlayerX = CANVAS_PADDING;
-  const initialPlayerY = ctx.canvas.height - CANVAS_PADDING - size;
-  const speedModifier = 5;
-  const player = new Player({
-    x: initialPlayerX,
-    y: initialPlayerY,
-    size,
-    speedModifier,
-  });
+  const player = new Player({});
 
   const game = new Game(ctx, player);
 
